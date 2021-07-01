@@ -6,6 +6,9 @@
 * Final codes are at DL-Tank /home/jiang/PycharmProjects/workECMLPKDD21/workODMatrix_paper, already uploaded to this github, see /model. <br>
 * Final results are at DL-Tank /home/jiang/PycharmProjects/workECMLPKDD21/save, already uploaded to this github, check /save. <br>
 
+* Final table is as follows, same with OverLeaf.
+* You can delete some baselines, and accordingly adjust the contents of Section 6.2 (metrics) and Section 6.3 (result analysis).
+ 
 |Model|RMSE|MAE|MAPE|
 |:---|---|---|---|
 |MonthlyAverage|4528.066|413.558|53.953%|

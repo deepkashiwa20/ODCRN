@@ -7,5 +7,5 @@
 * Final results are at DL-Tank /home/jiang/PycharmProjects/workECMLPKDD21/save, already uploaded to this github, check /save. <br>
 
 |Model|RMSE|MAE|MAPE|
-|---|---:|---:|---:|---:|---|
+|---|---:|---:|---:|
 |MonthlyAverage|4528.066|413.558|53.953%|

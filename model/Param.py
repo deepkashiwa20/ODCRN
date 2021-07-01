@@ -9,13 +9,9 @@ SPLIT = 0.2
 LEARN = 0.0001
 EPOCH = 200
 PATIENCE = 20
-LOSS = 'mse'
+LOSS = 'mae'
 OPTIMIZER = 'adam'
-trainRatio = 0.8  # 80 days for training and validation, 20 days for testing.
-TRAIN_MAX = 0.1
-
-mse_weight = 1
-mape_weight = 1
+TRAINRATIO = 0.8
 
 ODPATH = '../data/od_day20180101_20210228.npz'
 ADJPATH = '../data/adjacency_matrix.npy'

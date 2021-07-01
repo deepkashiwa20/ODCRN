@@ -12,25 +12,20 @@ from Param import *
 from Param_HistoricalAverage import *
 from sklearn.preprocessing import StandardScaler
 
-def getXSYS(allData, mode):
-    TRAIN_NUM = int(allData.shape[0] * trainRatio)
+def getXSYS(data, mode):
+    TRAIN_NUM = int(data.shape[0] * TRAINRATIO)
     XS, YS = [], []
     if mode == 'TRAIN':    
         for i in range(TRAIN_NUM - TIMESTEP_OUT - TIMESTEP_IN + 1):
-            x = allData[i:i+TIMESTEP_IN, :, :, :]
-            y = allData[i+TIMESTEP_IN:i+TIMESTEP_IN+TIMESTEP_OUT, :, :, :]
+            x = data[i:i+TIMESTEP_IN, :, :, :]
+            y = data[i+TIMESTEP_IN:i+TIMESTEP_IN+TIMESTEP_OUT, :, :, :]
             XS.append(x), YS.append(y)
     elif mode == 'TEST':
-        for i in range(TRAIN_NUM - TIMESTEP_IN,  allData.shape[0] - TIMESTEP_OUT - TIMESTEP_IN + 1):
-            x = allData[i:i+TIMESTEP_IN, :, :, :]
-            y = allData[i+TIMESTEP_IN:i+TIMESTEP_IN+TIMESTEP_OUT, :, :, :]
+        for i in range(TRAIN_NUM - TIMESTEP_IN, data.shape[0] - TIMESTEP_OUT - TIMESTEP_IN + 1):
+            x = data[i:i+TIMESTEP_IN, :, :, :]
+            y = data[i+TIMESTEP_IN:i+TIMESTEP_IN+TIMESTEP_OUT, :, :, :]
             XS.append(x), YS.append(y)
     XS, YS = np.array(XS), np.array(YS)
-    if MODELNAME == 'CNN':
-        XS = XS.transpose(0, 2, 3, 4, 1)
-        XS = XS.reshape(XS.shape[0], XS.shape[1], XS.shape[2], -1)
-        YS = YS.transpose(0, 2, 3, 4, 1)
-        YS = YS.reshape(YS.shape[0], YS.shape[1], YS.shape[2], -1)
     return XS, YS
 
 def HistoricalAverage(XS, YS):

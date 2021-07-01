@@ -1,24 +1,27 @@
 import scipy.sparse as ss
 import jpholiday
-import sys
-import shutil
-import os
-import time
-from datetime import datetime, date, timedelta
-import pandas as pd
+import csv
 import numpy as np
-import h5py
-from copy import copy
+import os
+import shutil
+import sys
+import time
+import pandas as pd
+from datetime import datetime
 from keras.models import load_model, Model, Sequential
-from keras.layers import Input, Activation, Flatten, Dense, Reshape, Concatenate, Add, Lambda, Layer, add, multiply, TimeDistributed
+from keras.layers import Input, merge, TimeDistributed, Flatten, RepeatVector, Reshape, UpSampling2D, concatenate, add, Dropout, Embedding
+from keras.optimizers import RMSprop, Adam, SGD
 from keras.layers.convolutional_recurrent import ConvLSTM2D
-from keras.layers.convolutional import Conv2D
-from keras.callbacks import CSVLogger, EarlyStopping, ModelCheckpoint, LearningRateScheduler, Callback
-import keras.backend as K
+from keras.layers.normalization import BatchNormalization
+from keras.layers.convolutional import Conv2D, MaxPooling2D, Conv3D
+from keras.layers.recurrent import LSTM, GRU, SimpleRNN
+from keras.layers.core import Dense
+from keras.callbacks import EarlyStopping, CSVLogger, ModelCheckpoint, LearningRateScheduler
 import Metrics
 from sklearn.preprocessing import StandardScaler
 from Param import *
-from Param_PCRN import *
+from Param_STResNet import *
+from ST_ResNet import stresnet
 
 def getXSYS(data, mode, dayinfo):
     TRAIN_NUM = int(data.shape[0] * TRAINRATIO)
@@ -34,16 +37,16 @@ def getXSYS(data, mode, dayinfo):
             
     XC, XP, XT, YS = [], [], [], []
     for i in range(start, end):
-        x_c = [data[i - j][np.newaxis, :, :, :] for j in depends[0]]
-        x_p = [data[i - j][np.newaxis, :, :, :] for j in depends[1]]
-        x_t = [data[i - j][np.newaxis, :, :, :] for j in depends[2]]      
-        XC.append(np.vstack(x_c))
-        XP.append(np.vstack(x_p))
-        XT.append(np.vstack(x_t))
+        x_c = [data[i - j] for j in depends[0]]
+        x_p = [data[i - j] for j in depends[1]]
+        x_t = [data[i - j] for j in depends[2]]
         y = [data[i] for i in range(i,i+TIMESTEP_OUT)]
+        XC.append(np.dstack(x_c))
+        XP.append(np.dstack(x_p))
+        XT.append(np.dstack(x_t))
         YS.append(np.dstack(y))
     XC, XP, XT, YS = np.array(XC), np.array(XP), np.array(XT), np.array(YS)
-
+    
     if dayinfo:
         DAYS = pd.date_range(start=STARTDATE, end=ENDDATE, freq='1D')
         df = pd.DataFrame()
@@ -65,105 +68,23 @@ def getXSYS(data, mode, dayinfo):
     XS = [XC, XP, XT, YD] if YD is not None else [XC, XP, XT]
     return XS, YS, day_info_dim
 
-##################### PCRN Model ############################
-def ConvLSTMs():
-    model = Sequential()
-    model.add(ConvLSTM2D(filters=32, kernel_size=(3, 3),
-                         padding='same', return_sequences=True,
-                         input_shape=(None, HEIGHT, WIDTH, CHANNEL)))
-    model.add(ConvLSTM2D(filters=32, kernel_size=(3, 3),
-                         padding='same', return_sequences=True))
-    model.add(ConvLSTM2D(filters=32, kernel_size=(3, 3),
-                         padding='same', return_sequences=False))
-    return model
 
-
-class HadamardFusion(Layer):
-    def __init__(self, **kwargs):
-        super(HadamardFusion, self).__init__(**kwargs)
-
-    def build(self, input_shape):
-        assert isinstance(input_shape, list)
-        self.Wc = self.add_weight(name='Wc', shape=(input_shape[0][1:]),
-                                  initializer='uniform', trainable=True)
-        self.Wp = self.add_weight(name='Wp', shape=(input_shape[1][1:]),
-                                  initializer='uniform', trainable=True)
-        super(HadamardFusion, self).build(input_shape)
-
-    def call(self, x, mask=None):
-        assert isinstance(x, list)
-        hct, hallt = x
-        hft = K.relu(hct * self.Wc + hallt * self.Wp)
-        return hft
-
-    def get_output_shape(self, input_shape):
-        return input_shape
-
-
-def softmax(ej_lst):
-    return K.exp(ej_lst[0]) / (K.exp(ej_lst[0]) + K.exp(ej_lst[1]))
-
-
-def getModel(name, dims):
-    TIMESTEP_IN, WIDTH, HEIGHT, CHANNEL, TIMESTEP_OUT, day_info_dim = dims
-    x_dim = (TIMESTEP_IN, WIDTH, HEIGHT, CHANNEL)
-    if name == 'PCRN':
-        # Input xc, xp, xt --> hct1, hP1, hP2
-        XC = Input(shape=x_dim)
-        XP = Input(shape=x_dim)
-        XT = Input(shape=x_dim)
-
-        shared_model = Sequential()
-        shared_model.add(ConvLSTM2D(filters=32, kernel_size=(3, 3), padding='same', return_sequences=True, input_shape=x_dim))
-        shared_model.add(ConvLSTM2D(filters=32, kernel_size=(3, 3), padding='same', return_sequences=True))
-        shared_model.add(ConvLSTM2D(filters=32, kernel_size=(3, 3), padding='same', return_sequences=False))
-
-        hct1 = shared_model(XC)
-        hP1 = shared_model(XP)
-        hP2 = shared_model(XT)
-
-        # Weighting based fusion
-        # daily
-        concate1 = Concatenate()([hct1, hP1])
-        conv1 = Conv2D(filters=1, kernel_size=(1, 1), padding='same')(concate1)
-        flat1 = Flatten()(conv1)
-        ej1 = Dense(1)(flat1)
-
-        # weekly
-        concate2 = Concatenate()([hct1, hP2])
-        conv2 = Conv2D(filters=1, kernel_size=(1, 1), padding='same')(concate2)
-        flat2 = Flatten()(conv2)
-        ej2 = Dense(1)(flat2)
-
-        aj1 = Lambda(softmax)([ej1, ej2])
-        aj2 = Lambda(softmax)([ej2, ej1])
-        hPallt = Add()([multiply([aj1, hP1]), multiply([aj2, hP2])])
-
-        hft = HadamardFusion()([hct1, hPallt])
-
-        # transform shape
-        hft_reshap = Conv2D(filters=CHANNEL*TIMESTEP_OUT, kernel_size=(3, 3), activation='linear', padding='same')(hft)
-        
-        # metadata fusion
-        if day_info_dim > 0:
-            Xmeta = Input(shape=(TIMESTEP_IN, day_info_dim))
-            x_day = TimeDistributed(Dense(units=WIDTH * HEIGHT * CHANNEL, activation='linear'))(Xmeta)
-            hmeta = Reshape((WIDTH, HEIGHT, CHANNEL*TIMESTEP_OUT))(x_day)
-            add2 = Add()([hft_reshap, hmeta])
-            X_hat = Activation('linear')(add2)
-            model = Model(inputs=[XC, XP, XT, Xmeta], outputs=X_hat)
-        else:
-            X_hat = hft_reshap
-            model = Model(inputs=[XC, XP, XT], outputs=X_hat)
-            
+def getModel(name, nb_res_units, day_info_dim):
+    if name == 'STResNet':
+        c_dim = (HEIGHT, WIDTH, nb_channel, len_c)
+        p_dim = (HEIGHT, WIDTH, nb_channel, len_p)
+        t_dim = (HEIGHT, WIDTH, nb_channel, len_t)
+        y_dim = (HEIGHT, WIDTH, nb_channel, TIMESTEP_OUT)
+        model = stresnet(c_dim = c_dim, p_dim = p_dim, t_dim = t_dim, y_dim = y_dim,
+                         residual_units = nb_res_units, filters=nb_filters, day_info_dim = day_info_dim)
         return model
     else:
         return None
-
+    
 def testModel(name, mode, XS, YS, day_info_dim):
     print('Model Evaluation Started ...', time.ctime())
     assert os.path.exists(PATH + '/' + name + '.h5'), 'model is not existing'
-    model = getModel(name, (TIMESTEP_IN, WIDTH, HEIGHT, CHANNEL, TIMESTEP_OUT, day_info_dim))
+    model = getModel(name, nb_res_units, day_info_dim)
     model.compile(loss=LOSS, optimizer=OPTIMIZER)
     model.load_weights(PATH + '/'+ name + '.h5')
     model.summary()
@@ -182,11 +103,11 @@ def testModel(name, mode, XS, YS, day_info_dim):
     f.close()
     print("%s, %s, Keras MSE, %.10e, %.10f\n" % (name, mode, keras_score, keras_score))
     print("%s, %s, MSE, RMSE, MAE, MAPE, %.3f, %.3f, %.3f, %.3f\n" % (name, mode, MSE, RMSE, MAE, MAPE))
-    print('Model Training Ended ...', time.ctime())
+    print('Model Evaluation Ended ...', time.ctime())
 
 def trainModel(name, mode, XS, YS, day_info_dim):
     print('Model Training Started ...', time.ctime())
-    model = getModel(name, (TIMESTEP_IN, WIDTH, HEIGHT, CHANNEL, TIMESTEP_OUT, day_info_dim))
+    model = getModel(name, nb_res_units, day_info_dim)
     model.compile(loss=LOSS, optimizer=OPTIMIZER)
     model.summary()
     csv_logger = CSVLogger(PATH + '/' + name + '.log')
@@ -209,9 +130,9 @@ def trainModel(name, mode, XS, YS, day_info_dim):
     print("%s, %s, Keras MSE, %.10e, %.10f\n" % (name, mode, keras_score, keras_score))
     print("%s, %s, MSE, RMSE, MAE, MAPE, %.3f, %.3f, %.3f, %.3f\n" % (name, mode, MSE, RMSE, MAE, MAPE))
     print('Model Training Ended ...', time.ctime())
-
+    
 ################# Parameter Setting #######################
-MODELNAME = 'PCRN'
+MODELNAME = 'STResNet'
 KEYWORD = 'predMultiOD_' + MODELNAME + '_zscore_' + datetime.now().strftime("%y%m%d%H%M")
 PATH = FILEPATH + KEYWORD
 ################# Parameter Setting #######################
@@ -250,9 +171,10 @@ def main():
     currentPython = sys.argv[0]
     shutil.copy2(currentPython, PATH)
     shutil.copy2('Param.py', PATH)
-    shutil.copy2('Param_PCRN.py', PATH)
+    shutil.copy2('Param_STResNet.py', PATH)
+    shutil.copy2('ST_ResNet.py', PATH)
 
-    print('STARTDATE, ENDDATE', STARTDATE, ENDDATE, 'data.shape', data.shape)
+    print('STARTDATE, ENDDATE', STARTDATE, ENDDATE, 'data.shape', data.shape)    
     print(KEYWORD, 'training started', time.ctime())
     trainXS, trainYS, day_info_dim = getXSYS(data, 'TRAIN', DAYINFO)
     print('TRAIN XS.shape YS.shape', [x.shape for x in trainXS], trainYS.shape)

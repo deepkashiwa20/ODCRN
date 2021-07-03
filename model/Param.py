@@ -9,7 +9,7 @@ SPLIT = 0.2 # Used for Keras.
 LEARN = 0.0001
 EPOCH = 200
 PATIENCE = 20
-LOSS = 'mse'
+LOSS = 'mae'
 OPTIMIZER = 'adam'
 TRAINRATIO = 0.8
 VALIDRATIO = 0.8 # 0.8 * 0.8 = 0.64 as training data and 0.16 as validation data # Used for Torch.

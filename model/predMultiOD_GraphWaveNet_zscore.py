@@ -17,27 +17,6 @@ from GraphWaveNet import *
 import Metrics
 from Param import *
     
-def getXSYS_single(allData, mode):
-    TRAIN_NUM = int(data.shape[0] * TRAINRATIO)
-    XS, YS = [], []
-    if mode == 'TRAIN':    
-        for i in range(TRAIN_NUM - TIMESTEP_OUT - TIMESTEP_IN + 1):
-            x = data[i:i+TIMESTEP_IN, :, :, :]
-            y = data[i+TIMESTEP_IN:i+TIMESTEP_IN+1, :, :, :]
-            XS.append(x), YS.append(y)
-    elif mode == 'TEST':
-        for i in range(TRAIN_NUM - TIMESTEP_IN,  allData.shape[0] - TIMESTEP_OUT - TIMESTEP_IN + 1):
-            x = data[i:i+TIMESTEP_IN, :, :, :]
-            y = data[i+TIMESTEP_IN:i+TIMESTEP_IN+1, :, :, :]
-            XS.append(x), YS.append(y)
-    XS, YS = np.array(XS), np.array(YS)
-    if MODELNAME == 'GraphWaveNet':
-        XS = XS.transpose(0, 2, 3, 4, 1)
-        XS = XS.reshape(XS.shape[0], XS.shape[1], XS.shape[2], -1)
-        YS = YS.transpose(0, 2, 3, 4, 1)
-        YS = YS.reshape(YS.shape[0], YS.shape[1], YS.shape[2], -1)
-    return XS, YS
-
 def getXSYS(data, mode):
     TRAIN_NUM = int(data.shape[0] * TRAINRATIO)
     XS, YS = [], []
@@ -52,6 +31,11 @@ def getXSYS(data, mode):
             y = data[i+TIMESTEP_IN:i+TIMESTEP_IN+TIMESTEP_OUT, :, :, :]
             XS.append(x), YS.append(y)
     XS, YS = np.array(XS), np.array(YS)
+    if MODELNAME == 'GraphWaveNet':
+        XS = XS.transpose(0, 2, 3, 4, 1)
+        XS = XS.reshape(XS.shape[0], XS.shape[1], XS.shape[2], -1)
+        YS = YS.transpose(0, 1, 3, 2, 4)
+        YS = YS.reshape(YS.shape[0], -1, YS.shape[3], YS.shape[4])
     return XS, YS
 
 def getModel(name):
@@ -59,7 +43,7 @@ def getModel(name):
         W = np.load(ADJPATH).astype(np.float32)
         adj_mx = load_adj(W)
         supports = [torch.tensor(i).to(device) for i in adj_mx]
-        model = gwnet(device, supports=supports).to(device)
+        model = gwnet(device, in_dim = 47, out_dim = 47*TIMESTEP_OUT, supports=supports).to(device)
         summary(model, (47, 47, TIMESTEP_IN), device=device)
         return model
     else:
@@ -130,9 +114,13 @@ def trainModel(name, mode, XS, YS):
     with torch.no_grad():
         YS_pred = model(XS_torch).cpu().numpy()
     print('YS.shape, YS_pred.shape,', YS.shape, YS_pred.shape)
-    YS = YS.reshape(YS.shape[0], -1)
+    YS = YS.reshape(YS.shape[0], -1, 47, 47)
+    YS = YS.transpose(0, 1, 3, 2)
+    YS = YS.reshape(YS.shape[0], TIMESTEP_OUT, -1)
     YS = scaler.inverse_transform(YS)
-    YS_pred = YS_pred.reshape(YS_pred.shape[0], -1)
+    YS_pred = YS_pred.reshape(YS_pred.shape[0], -1, 47, 47)
+    YS_pred = YS_pred.transpose(0, 1, 3, 2)
+    YS_pred = YS_pred.reshape(YS_pred.shape[0], TIMESTEP_OUT, -1)
     YS_pred = scaler.inverse_transform(YS_pred)
     MSE, RMSE, MAE, MAPE = Metrics.evaluate(YS, YS_pred)
     f = open(PATH + '/' + name + '_prediction_scores.txt', 'a')
@@ -144,7 +132,7 @@ def trainModel(name, mode, XS, YS):
     print("%s, %s, MSE, RMSE, MAE, MAPE, %.3f, %.3f, %.3f, %.3f\n" % (name, mode, MSE, RMSE, MAE, MAPE))
     print('Model Training Ended ...', time.ctime())
         
-def testModel(name, mode, XS, YS, YS_multi):
+def testModel(name, mode, XS, YS):
     print('Model Testing Started ...', time.ctime())
     XS_torch, YS_torch = torch.Tensor(XS).to(device), torch.Tensor(YS).to(device)
     test_data = torch.utils.data.TensorDataset(XS_torch, YS_torch)
@@ -159,23 +147,21 @@ def testModel(name, mode, XS, YS, YS_multi):
         
     torch_score = evaluate_model(model, criterion, test_iter)
     model.eval()
-    XS_pred_multi, YS_pred_multi = [XS_torch], []
     with torch.no_grad():
-        for i in range(TIMESTEP_OUT):
-            tmp_torch = torch.cat(XS_pred_multi, axis=3)[:, :, :, i:]
-            YS_pred = model(tmp_torch)
-            print('type(YS_pred), YS_pred.shape, XS_tmp_torch.shape', type(YS_pred), YS_pred.shape, tmp_torch.shape)
-            XS_pred_multi.append(YS_pred)
-            YS_pred_multi.append(YS_pred[:, np.newaxis, :, :, :])
-        YS_pred_multi = torch.cat(YS_pred_multi, axis=1).cpu().numpy()
-    YS_multi = YS_multi.reshape(YS_multi.shape[0], TIMESTEP_OUT, -1)
-    YS_multi = scaler.inverse_transform(YS_multi)
-    YS_pred_multi = YS_pred_multi.reshape(YS_pred_multi.shape[0], TIMESTEP_OUT, -1)
-    YS_pred_multi = scaler.inverse_transform(YS_pred_multi)
-    np.save(PATH + '/' + MODELNAME + '_prediction.npy', YS_pred_multi)
-    np.save(PATH + '/' + MODELNAME + '_groundtruth.npy', YS_multi)
-    print('YS_multi.shape, YS_pred_multi.shape,', YS_multi.shape, YS_pred_multi.shape)
-    MSE, RMSE, MAE, MAPE = Metrics.evaluate(YS_multi, YS_pred_multi)
+        YS_pred = model(XS_torch).cpu().numpy()
+    print('YS.shape, YS_pred.shape,', YS.shape, YS_pred.shape)
+    YS = YS.reshape(YS.shape[0], -1, 47, 47)
+    YS = YS.transpose(0, 1, 3, 2)
+    YS = YS.reshape(YS.shape[0], TIMESTEP_OUT, -1)
+    YS = scaler.inverse_transform(YS)
+    YS_pred = YS_pred.reshape(YS_pred.shape[0], -1, 47, 47)
+    YS_pred = YS_pred.transpose(0, 1, 3, 2)
+    YS_pred = YS_pred.reshape(YS_pred.shape[0], TIMESTEP_OUT, -1)
+    YS_pred = scaler.inverse_transform(YS_pred)
+    np.save(PATH + '/' + MODELNAME + '_prediction.npy', YS_pred)
+    np.save(PATH + '/' + MODELNAME + '_groundtruth.npy', YS)
+    print('YS_multi.shape, YS_pred_multi.shape,', YS.shape, YS_pred.shape)
+    MSE, RMSE, MAE, MAPE = Metrics.evaluate(YS, YS_pred)
     f = open(PATH + '/' + name + '_prediction_scores.txt', 'a')
     f.write("%s, %s, Torch MSE, %.10e, %.10f\n" % (name, mode, torch_score, torch_score))
     f.write("%s, %s, MSE, RMSE, MAE, MAPE, %.3f, %.3f, %.3f, %.3f\n" % (name, mode, MSE, RMSE, MAE, MAPE))
@@ -220,15 +206,14 @@ def main():
         
     print('STARTDATE, ENDDATE', STARTDATE, ENDDATE, 'data.shape', data.shape)
     print(KEYWORD, 'training started', time.ctime())
-    trainXS, trainYS = getXSYS_single(data, 'TRAIN')
+    trainXS, trainYS = getXSYS(data, 'TRAIN')
     print('TRAIN XS.shape YS,shape', trainXS.shape, trainYS.shape)
     trainModel(MODELNAME, 'TRAIN', trainXS, trainYS)
     
     print(KEYWORD, 'testing started', time.ctime())
-    testXS, testYS = getXSYS_single(data, 'TEST')
-    _, testYS_multi = getXSYS(data, 'TEST')
-    print('TEST XS.shape, YS.shape, YS_multi.shape', testXS.shape, testYS.shape, testYS_multi.shape)
-    testModel(MODELNAME, 'TEST', testXS, testYS, testYS_multi)
+    testXS, testYS = getXSYS(data, 'TEST')
+    print('TEST XS.shape, YS.shape', testXS.shape, testYS.shape)
+    testModel(MODELNAME, 'TEST', testXS, testYS)
 
     
 if __name__ == '__main__':

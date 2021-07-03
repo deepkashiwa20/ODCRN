@@ -156,6 +156,7 @@ def trainModel(name, mode, XS, YS):
         
 def testModel(name, mode, XS, YS, YS_multi):
     print('Model Testing Started ...', time.ctime())
+    print('BATCHSIZE, LOSS, LEARN, OPTIMIZER', BATCHSIZE, LOSS, LEARN, OPTIMIZER)
     XS_torch, YS_torch = torch.Tensor(XS).to(device), torch.Tensor(YS).to(device)
     test_data = torch.utils.data.TensorDataset(XS_torch, YS_torch)
     test_iter = torch.utils.data.DataLoader(test_data, BATCHSIZE, shuffle=True)

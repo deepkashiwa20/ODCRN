@@ -4,12 +4,12 @@ TIMESTEP_IN, TIMESTEP_OUT = 7, 7
 HEIGHT = 47
 WIDTH = 47
 CHANNEL = 1
-BATCHSIZE = 16
+BATCHSIZE = 4
 SPLIT = 0.2 # Used for Keras.
 LEARN = 0.0001
 EPOCH = 200
 PATIENCE = 20
-LOSS = 'mae'
+LOSS = 'mse'
 OPTIMIZER = 'adam'
 TRAINRATIO = 0.8
 VALIDRATIO = 0.8 # 0.8 * 0.8 = 0.64 as training data and 0.16 as validation data # Used for Torch.

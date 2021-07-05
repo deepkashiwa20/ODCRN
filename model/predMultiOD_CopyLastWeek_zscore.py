@@ -39,10 +39,10 @@ def testModel(name, mode, XS, YS):
     YS_pred = scaler.inverse_transform(YS_pred)
     MSE, RMSE, MAE, MAPE = Metrics.evaluate(YS, YS_pred)
     f = open(PATH + '/' + name + '_prediction_scores.txt', 'a')
-    f.write("%s, %s, MSE, RMSE, MAE, MAPE, %.10f, %.10f, %.10f, %.10f\n" % (name, mode, MSE, RMSE, MAE, MAPE))
+    f.write("%s, %s, MSE, RMSE, MAE, MAPE, %.3f, %.3f, %.3f, %.3f\n" % (name, mode, MSE, RMSE, MAE, MAPE))
     f.close()
     print('*' * 40)
-    print("%s, %s, MSE, RMSE, MAE, MAPE, %.10f, %.10f, %.10f, %.10f\n" % (name, mode, MSE, RMSE, MAE, MAPE))
+    print("%s, %s, MSE, RMSE, MAE, MAPE, %.3f, %.3f, %.3f, %.3f\n" % (name, mode, MSE, RMSE, MAE, MAPE))
     print('Model Training Ended ...', time.ctime())
 
 def trainModel(name, mode, XS, YS):
@@ -54,10 +54,10 @@ def trainModel(name, mode, XS, YS):
     YS_pred = scaler.inverse_transform(YS_pred)
     MSE, RMSE, MAE, MAPE = Metrics.evaluate(YS, YS_pred)
     f = open(PATH + '/' + name + '_prediction_scores.txt', 'a')
-    f.write("%s, %s, MSE, RMSE, MAE, MAPE, %.10f, %.10f, %.10f, %.10f\n" % (name, mode, MSE, RMSE, MAE, MAPE))
+    f.write("%s, %s, MSE, RMSE, MAE, MAPE, %.3f, %.3f, %.3f, %.3f\n" % (name, mode, MSE, RMSE, MAE, MAPE))
     f.close()
     print('*' * 40)
-    print("%s, %s, MSE, RMSE, MAE, MAPE, %.10f, %.10f, %.10f, %.10f\n" % (name, mode, MSE, RMSE, MAE, MAPE))
+    print("%s, %s, MSE, RMSE, MAE, MAPE, %.3f, %.3f, %.3f, %.3f\n" % (name, mode, MSE, RMSE, MAE, MAPE))
     print('Model Training Ended ...', time.ctime())
 
 ################# Parameter Setting #######################

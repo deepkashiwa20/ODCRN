@@ -1,30 +1,6 @@
 import numpy as np
 
-# def evaluate(y_pred: np.array, y_true: np.array, precision=10):
-#     print('MSE:', round(MSE(y_pred, y_true), precision))
-#     print('RMSE:', round(RMSE(y_pred, y_true), precision))
-#     print('MAE:', round(MAE(y_pred, y_true), precision))
-#     print('MAPE:', round(MAPE(y_pred, y_true)*100, precision), '%')
-#     return MSE(y_pred, y_true), RMSE(y_pred, y_true), MAE(y_pred, y_true), MAPE(y_pred, y_true)
-
-# def MSE(y_pred: np.array, y_true: np.array):
-#     return np.mean(np.square(y_pred - y_true))
-
-# def RMSE(y_pred:np.array, y_true:np.array):
-#     return np.sqrt(MSE(y_pred, y_true))
-
-# def MAE(y_pred:np.array, y_true:np.array):
-#     return np.mean(np.abs(y_pred - y_true))
-
-# def MAPE(y_pred:np.array, y_true:np.array, epsilon=1e-3):       # avoid zero division
-#     return np.mean(np.abs(y_pred - y_true) / np.clip((np.abs(y_pred) + np.abs(y_true)) * 0.5, epsilon, None)) * 100
-
 def evaluate(y_true, y_pred, precision=10):
-    # print('MSE:', round(MSE(y_true, y_pred), precision))
-    # print('RMSE:', round(RMSE(y_true, y_pred), precision))
-    # print('MAE:', round(MAE(y_true, y_pred), precision))
-    # print('MAPE:', round(MAPE(y_true, y_pred), precision), '%')
-    # print('PCC:', round(PCC(y_true, y_pred), precision))
     return MSE(y_true, y_pred), RMSE(y_true, y_pred), MAE(y_true, y_pred), MAPE(y_true, y_pred)
 
 def MSE(y_true, y_pred):

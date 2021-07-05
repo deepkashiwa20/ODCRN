@@ -76,8 +76,8 @@ def trainModel(name, mode, XS, YS):
     print('YS_torch.shape:  ', YS_torch.shape)
     train_data = torch.utils.data.Subset(trainval_data, list(range(0, train_size)))
     val_data = torch.utils.data.Subset(trainval_data, list(range(train_size, trainval_size)))
-    train_iter = torch.utils.data.DataLoader(train_data, BATCHSIZE, shuffle=True)
-    val_iter = torch.utils.data.DataLoader(val_data, BATCHSIZE, shuffle=True)
+    train_iter = torch.utils.data.DataLoader(train_data, BATCHSIZE)
+    val_iter = torch.utils.data.DataLoader(val_data, BATCHSIZE)
     
     min_val_loss = np.inf
     wait = 0
@@ -121,7 +121,7 @@ def trainModel(name, mode, XS, YS):
             f.write("%s, %d, %s, %d, %s, %s, %.10f, %s, %.10f\n" % ("epoch", epoch, "time used", epoch_time, "seconds", "train loss", train_loss, "validation loss:", val_loss))
             
     torch_score = evaluateModel(model, criterion, train_iter)
-    YS_pred = predictModel(model, torch.utils.data.DataLoader(trainval_data, BATCHSIZE, shuffle=False))
+    YS_pred = predictModel(model, torch.utils.data.DataLoader(trainval_data, BATCHSIZE))
     print('YS.shape, YS_pred.shape,', YS.shape, YS_pred.shape)
     YS = YS.reshape(YS.shape[0], TIMESTEP_OUT, -1)
     YS = scaler.inverse_transform(YS)
@@ -145,7 +145,7 @@ def testModel(name, mode, XS, YS):
     print('TIMESTEP_IN, TIMESTEP_OUT', TIMESTEP_IN, TIMESTEP_OUT)
     XS_torch, YS_torch = torch.Tensor(XS).to(device), torch.Tensor(YS).to(device)
     test_data = torch.utils.data.TensorDataset(XS_torch, YS_torch)
-    test_iter = torch.utils.data.DataLoader(test_data, BATCHSIZE, shuffle=False)
+    test_iter = torch.utils.data.DataLoader(test_data, BATCHSIZE)
     model = getModel(name)
     model.load_state_dict(torch.load(PATH+ '/' + name + '.pt'))
     

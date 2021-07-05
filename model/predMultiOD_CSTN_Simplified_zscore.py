@@ -104,8 +104,7 @@ def trainModel(name, mode, XS, YS):
     checkpointer = ModelCheckpoint(filepath=PATH + '/' + name + '.h5', verbose=1, save_best_only=True)
     LR = LearningRateScheduler(lambda epoch: LEARN)
     early_stopping = EarlyStopping(monitor='val_loss', patience=PATIENCE, verbose=1, mode='auto')
-    model.fit(XS, YS, batch_size=BATCHSIZE, epochs=EPOCH, shuffle=True,
-              callbacks=[csv_logger, checkpointer, LR, early_stopping], validation_split=SPLIT)
+    model.fit(XS, YS, batch_size=BATCHSIZE, epochs=EPOCH, callbacks=[csv_logger, checkpointer, LR, early_stopping], validation_split=SPLIT)
     keras_score = model.evaluate(XS, YS, verbose=1)
     YS_pred = model.predict(XS, verbose=1, batch_size=BATCHSIZE)
     YS = YS.reshape(YS.shape[0], -1)

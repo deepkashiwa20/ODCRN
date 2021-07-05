@@ -96,8 +96,8 @@ def trainModel(name, mode, XS, YS):
     train_size = int(trainval_size * VALIDRATIO)
     train_data = torch.utils.data.Subset(trainval_data, list(range(0, train_size)))
     val_data = torch.utils.data.Subset(trainval_data, list(range(train_size, trainval_size)))
-    train_iter = torch.utils.data.DataLoader(train_data, BATCHSIZE, shuffle=True)
-    val_iter = torch.utils.data.DataLoader(val_data, BATCHSIZE, shuffle=True)
+    train_iter = torch.utils.data.DataLoader(train_data, BATCHSIZE)
+    val_iter = torch.utils.data.DataLoader(val_data, BATCHSIZE)
     
     if LOSS == 'mse':
         criterion = nn.MSELoss()
@@ -159,7 +159,7 @@ def testModel(name, mode, XS, YS, YS_multi):
     print('BATCHSIZE, LOSS, LEARN, OPTIMIZER', BATCHSIZE, LOSS, LEARN, OPTIMIZER)
     XS_torch, YS_torch = torch.Tensor(XS).to(device), torch.Tensor(YS).to(device)
     test_data = torch.utils.data.TensorDataset(XS_torch, YS_torch)
-    test_iter = torch.utils.data.DataLoader(test_data, BATCHSIZE, shuffle=True)
+    test_iter = torch.utils.data.DataLoader(test_data, BATCHSIZE)
     model = getModel(name)
     model.load_state_dict(torch.load(PATH + '/' + name + '.pt'))
     
